@@ -33,13 +33,6 @@
             animation: snowfall linear infinite;
         }
     </style>
-    <script>
-        // Ensure process.env.API_KEY is available and not overwritten if already set
-        window.process = window.process || { env: {} };
-        if (!window.process.env.API_KEY) {
-            window.process.env.API_KEY = ""; 
-        }
-    </script>
     <script type="importmap">
 {
   "imports": {
@@ -54,15 +47,13 @@
 </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body className="overflow-x-hidden">
+<body class="overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect } from 'react';
         import ReactDOM from 'react-dom/client';
         import { GoogleGenAI } from "@google/genai";
-
-        // --- Components ---
 
         const Header = () => (
             <header className="relative z-10 py-10 text-center">
@@ -91,9 +82,7 @@
             const onFileChange = (e) => {
                 const files = Array.from(e.target.files || []);
                 const remainingSlots = 3 - images.length;
-                const filesToProcess = files.slice(0, remainingSlots);
-
-                filesToProcess.forEach(file => {
+                files.slice(0, remainingSlots).forEach(file => {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         setImages(prev => [...prev, ev.target.result]);
@@ -109,6 +98,7 @@
                 setError(null);
 
                 try {
+                    // Using the standard API key from the environment
                     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     
                     const imageParts = images.map(url => ({
@@ -118,31 +108,33 @@
                         }
                     }));
 
-                    const prompt = `Create a high-quality vintage Soviet New Year greeting card (1960s style illustration). 
-                    The card must feature ONLY the specific people from the provided photos. 
-                    Style: Painterly, gouache-like texture, warm nostalgic colors (reds, golds, deep greens). 
-                    Characters should be wearing vintage winter outfits (fur hats, wool coats, stylish scarves). 
-                    Background: A magical snowy winter forest with a decorated fir tree and glowing lanterns. 
-                    Important: Maintain high facial likeness to the people in the photos. 
-                    Do not include any text in the generated image itself. 
-                    Leave the top 15% of the frame slightly clearer for an overlay.`;
+                    const prompt = `Create a vintage Soviet New Year greeting card from 1960s. 
+                    Feature ONLY the people from the provided photos. 
+                    Style: Painterly, gouache-like illustration, warm nostalgic mood. 
+                    Dress the people in vintage winter outfits: wool coats, scarves, and fur hats. 
+                    Background: Festive winter snowy park at night with warm lights on a Christmas tree. 
+                    The people must be smiling and looking at the camera. 
+                    Maintain high facial similarity. 
+                    IMPORTANT: No text inside the image. Leave top margin for text.`;
 
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash-image',
                         contents: { parts: [...imageParts, { text: prompt }] },
                         config: { 
                             imageConfig: { 
-                                aspectRatio: "9:16" 
+                                aspectRatio: "9:16"
                             } 
                         }
                     });
 
                     let base64 = "";
-                    const parts = response.candidates?.[0]?.content?.parts || [];
-                    for (const p of parts) {
-                        if (p.inlineData) {
-                            base64 = `data:image/png;base64,${p.inlineData.data}`;
-                            break;
+                    const candidate = response.candidates?.[0];
+                    if (candidate && candidate.content && candidate.content.parts) {
+                        for (const p of candidate.content.parts) {
+                            if (p.inlineData) {
+                                base64 = `data:image/png;base64,${p.inlineData.data}`;
+                                break;
+                            }
                         }
                     }
 
@@ -150,11 +142,11 @@
                         const finalCard = await applyPostcardEffects(base64);
                         setResult(finalCard);
                     } else {
-                        throw new Error("Не удалось создать изображение. Попробуйте другие фото.");
+                        throw new Error("Не удалось создать изображение. Пожалуйста, попробуйте еще раз.");
                     }
                 } catch (err) {
                     console.error(err);
-                    setError(err.message || "Ошибка соединения с ИИ");
+                    setError(err.message || "Ошибка соединения с ИИ. Убедитесь, что лимиты не исчерпаны.");
                 } finally {
                     setIsGenerating(false);
                 }
@@ -169,21 +161,8 @@
                         canvas.width = img.width;
                         canvas.height = img.height;
                         const ctx = canvas.getContext('2d');
-                        
-                        // Draw generated image
                         ctx.drawImage(img, 0, 0);
 
-                        // Add vintage vignette
-                        const gradient = ctx.createRadialGradient(
-                            canvas.width / 2, canvas.height / 2, 0,
-                            canvas.width / 2, canvas.height / 2, canvas.height / 1.2
-                        );
-                        gradient.addColorStop(0, 'rgba(0,0,0,0)');
-                        gradient.addColorStop(1, 'rgba(0,0,0,0.3)');
-                        ctx.fillStyle = gradient;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                        // Add "Happy New Year" text
                         const fontSize = Math.floor(canvas.width * 0.13);
                         ctx.font = `${fontSize}px 'Marck Script'`;
                         ctx.textAlign = 'center';
@@ -191,34 +170,29 @@
                         const x = canvas.width / 2;
                         const y = canvas.height * 0.15;
 
-                        // Text shadow
-                        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-                        ctx.shadowBlur = 15;
-                        ctx.shadowOffsetX = 4;
-                        ctx.shadowOffsetY = 4;
+                        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                        ctx.shadowBlur = 10;
+                        ctx.shadowOffsetX = 3;
+                        ctx.shadowOffsetY = 3;
 
-                        // Text stroke
-                        ctx.strokeStyle = '#6a040f';
+                        ctx.strokeStyle = '#7f0000';
                         ctx.lineWidth = fontSize * 0.08;
                         ctx.strokeText(text, x, y);
 
-                        // Text fill (gold gradient)
                         const goldGrad = ctx.createLinearGradient(0, y - fontSize, 0, y);
-                        goldGrad.addColorStop(0, '#fff4cc');
-                        goldGrad.addColorStop(0.5, '#ffd700');
-                        goldGrad.addColorStop(1, '#daa520');
+                        goldGrad.addColorStop(0, '#fff6e0');
+                        goldGrad.addColorStop(1, '#ffcc33');
                         ctx.fillStyle = goldGrad;
                         ctx.shadowColor = 'transparent';
                         ctx.fillText(text, x, y);
 
-                        // Add paper texture overlay
-                        ctx.globalCompositeOperation = 'overlay';
-                        ctx.globalAlpha = 0.15;
-                        // Using simple noise since external textures can be blocked
-                        for (let i = 0; i < 1000; i++) {
+                        // Subtle paper overlay
+                        ctx.globalCompositeOperation = 'multiply';
+                        ctx.globalAlpha = 0.05;
+                        for (let i = 0; i < 3000; i++) {
                             const rx = Math.random() * canvas.width;
                             const ry = Math.random() * canvas.height;
-                            ctx.fillStyle = i % 2 === 0 ? '#fff' : '#000';
+                            ctx.fillStyle = '#000';
                             ctx.fillRect(rx, ry, 1, 1);
                         }
 
@@ -240,26 +214,20 @@
                     
                     <main className="container mx-auto px-4 pb-20 max-w-5xl flex-grow z-10">
                         {result ? (
-                            <div className="max-w-lg mx-auto transform transition-all animate-in fade-in zoom-in duration-500">
+                            <div className="max-w-lg mx-auto animate-in fade-in zoom-in duration-500">
                                 <div className="bg-white p-6 rounded-[2rem] shadow-2xl border-8 border-white">
                                     <img src={result} className="w-full h-auto rounded-xl shadow-inner" alt="Результат" />
                                     <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                                        <button 
-                                            onClick={() => {
-                                                const a = document.createElement('a');
-                                                a.href = result;
-                                                a.download = `new_year_card_${Date.now()}.png`;
-                                                a.click();
-                                            }}
-                                            className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-lg hover:bg-red-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            💾 Скачать
+                                        <button onClick={() => {
+                                            const a = document.createElement('a');
+                                            a.href = result;
+                                            a.download = `new_year_${Date.now()}.png`;
+                                            a.click();
+                                        }} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-lg hover:bg-red-700 shadow-lg active:scale-95 flex items-center justify-center gap-2">
+                                            💾 Сохранить
                                         </button>
-                                        <button 
-                                            onClick={reset}
-                                            className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold text-lg hover:bg-slate-200 transition-all active:scale-95"
-                                        >
-                                            🔄 Еще раз
+                                        <button onClick={reset} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold text-lg hover:bg-slate-200 active:scale-95">
+                                            🔄 Сделать еще
                                         </button>
                                     </div>
                                 </div>
@@ -267,39 +235,26 @@
                         ) : (
                             <div className="grid lg:grid-cols-2 gap-10 items-start">
                                 <div className="glass-card p-10 rounded-[3rem] shadow-2xl">
-                                    <h2 className="text-3xl font-extrabold text-slate-800 mb-6">Создайте чудо ✨</h2>
+                                    <h2 className="text-3xl font-extrabold text-slate-800 mb-6">Создайте открытку ✨</h2>
                                     <p className="text-slate-600 leading-relaxed mb-10">
-                                        Загрузите до 3 фотографий. Наш ИИ бережно воссоздаст ваши лица в стиле классической советской открытки.
+                                        Загрузите до 3 фотографий. Мы перенесем вас в сказочный мир классической новогодней иллюстрации.
                                     </p>
 
                                     <div 
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="relative overflow-hidden group w-full border-4 border-dashed border-red-100 rounded-[2.5rem] p-16 text-center cursor-pointer hover:border-red-400 hover:bg-red-50/50 transition-all"
+                                        className="relative group w-full border-4 border-dashed border-red-100 rounded-[2.5rem] p-16 text-center cursor-pointer hover:border-red-400 hover:bg-red-50/50 transition-all"
                                     >
                                         <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">📸</div>
                                         <p className="font-bold text-slate-700 text-lg">Выбрать фотографии</p>
-                                        <p className="text-xs text-slate-400 mt-2">Рекомендуем портретные фото</p>
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={onFileChange} 
-                                            multiple 
-                                            accept="image/*" 
-                                            className="hidden" 
-                                        />
+                                        <input type="file" ref={fileInputRef} onChange={onFileChange} multiple accept="image/*" className="hidden" />
                                     </div>
 
                                     {images.length > 0 && (
                                         <div className="mt-10 flex flex-wrap gap-4 justify-center">
                                             {images.map((img, i) => (
-                                                <div key={i} className="relative group w-24 h-24">
+                                                <div key={i} className="relative w-24 h-24">
                                                     <img src={img} className="w-full h-full object-cover rounded-2xl ring-4 ring-white shadow-xl" />
-                                                    <button 
-                                                        onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
-                                                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-red-600 transition-all"
-                                                    >
-                                                        ×
-                                                    </button>
+                                                    <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-red-600 transition-all">×</button>
                                                 </div>
                                             ))}
                                         </div>
@@ -309,42 +264,36 @@
                                 <div className="h-full">
                                     <div className="glass-card p-12 rounded-[3rem] shadow-2xl min-h-[500px] flex flex-col items-center justify-center text-center">
                                         {isGenerating ? (
-                                            <div className="space-y-10 w-full animate-in fade-in duration-1000">
+                                            <div className="space-y-10 w-full">
                                                 <div className="relative w-32 h-32 mx-auto">
                                                     <div className="absolute inset-0 border-8 border-slate-100 rounded-full"></div>
                                                     <div className="absolute inset-0 border-8 border-t-red-600 rounded-full animate-spin"></div>
                                                     <div className="absolute inset-0 flex items-center justify-center text-4xl">🪄</div>
                                                 </div>
                                                 <div>
-                                                    <p className="text-3xl font-black text-slate-800">Магия ИИ...</p>
+                                                    <p className="text-3xl font-black text-slate-800">Создаем магию...</p>
                                                     <p className="text-sm text-slate-400 mt-4 italic max-w-xs mx-auto">
-                                                        Прорисовываем винтажные костюмы и снежную атмосферу. Это займет около 15 секунд.
+                                                        Рисуем винтажные наряды и заснеженный лес. Это бесплатно и займет около 15 секунд.
                                                     </p>
                                                 </div>
                                             </div>
                                         ) : images.length > 0 ? (
-                                            <div className="w-full space-y-10 scale-in-center">
-                                                <div className="inline-block px-8 py-3 bg-green-50 text-green-700 rounded-full font-bold border border-green-100">
-                                                    ✓ Готово к генерации ({images.length}/3)
-                                                </div>
-                                                <button 
-                                                    onClick={generate} 
-                                                    className="w-full py-8 bg-red-600 text-white rounded-[2.5rem] font-black text-3xl hover:bg-red-700 hover:scale-[1.02] transition-all shadow-2xl shadow-red-200 active:scale-95 flex items-center justify-center gap-4"
-                                                >
-                                                    <span>СОЗДАТЬ МАГИЮ</span>
+                                            <div className="w-full space-y-10">
+                                                <button onClick={generate} className="w-full py-8 bg-red-600 text-white rounded-[2.5rem] font-black text-3xl hover:bg-red-700 hover:scale-[1.02] transition-all shadow-2xl shadow-red-200 active:scale-95 flex items-center justify-center gap-4">
+                                                    <span>ПОЛУЧИТЬ ОТКРЫТКУ</span>
                                                     <span>✨</span>
                                                 </button>
-                                                <p className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">Powered by Gemini 2.5 Flash</p>
+                                                <p className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">Model: Gemini 2.5 Flash</p>
                                             </div>
                                         ) : (
                                             <div className="opacity-20 flex flex-col items-center">
                                                 <div className="text-[10rem] mb-4">🎄</div>
-                                                <p className="text-2xl font-bold text-slate-400">Сначала загрузите фото</p>
+                                                <p className="text-2xl font-bold text-slate-400">Сначала добавьте фото</p>
                                             </div>
                                         )}
                                         
                                         {error && (
-                                            <div className="mt-10 p-5 bg-red-50 text-red-600 rounded-3xl text-sm font-bold border border-red-100 w-full animate-shake">
+                                            <div className="mt-10 p-5 bg-red-50 text-red-600 rounded-3xl text-sm font-bold border border-red-100 w-full animate-pulse">
                                                 ⚠️ {error}
                                             </div>
                                         )}
@@ -356,23 +305,16 @@
 
                     <footer className="py-12 text-center text-slate-400 text-xs bg-white/50 border-t border-slate-100 z-10">
                         <p className="font-bold mb-2">© 2024 Ретро-фотомастерская</p>
-                        <p className="opacity-50">Создано для радости и новогоднего настроения</p>
+                        <p className="opacity-50 italic uppercase tracking-widest text-[8px]">Свободный доступ • Магия ИИ</p>
                     </footer>
 
-                    {/* Background snow particles */}
-                    {[...Array(20)].map((_, i) => (
-                        <div 
-                            key={i} 
-                            className="snowflake"
-                            style={{
-                                left: `${Math.random() * 100}%`,
-                                animationDuration: `${Math.random() * 5 + 5}s`,
-                                animationDelay: `${Math.random() * 5}s`,
-                                fontSize: `${Math.random() * 10 + 10}px`
-                            }}
-                        >
-                            •
-                        </div>
+                    {[...Array(15)].map((_, i) => (
+                        <div key={i} className="snowflake" style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDuration: `${Math.random() * 5 + 5}s`,
+                            animationDelay: `${Math.random() * 5}s`,
+                            fontSize: `${Math.random() * 10 + 10}px`
+                        }}>•</div>
                     ))}
                 </div>
             );
