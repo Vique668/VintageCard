@@ -95,21 +95,12 @@
             const generate = async () => {
                 if (images.length === 0) return;
                 
-                // Safe check for process.env to avoid ReferenceError in browser
-                const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : null;
-                
-                if (!apiKey) {
-                    setError("Ошибка конфигурации: API ключ не найден в окружении. Проверьте настройки GitHub Secrets или переменные среды.");
-                    console.error("Missing API Key. Ensure process.env.API_KEY is available.");
-                    return;
-                }
-
                 setIsGenerating(true);
                 setError(null);
-                console.log("Starting generation with", images.length, "images...");
 
                 try {
-                    const ai = new GoogleGenAI({ apiKey });
+                    // process.env.API_KEY is now injected by Vite during build
+                    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     
                     const imageParts = images.map(url => ({
                         inlineData: {
@@ -118,12 +109,12 @@
                         }
                     }));
 
-                    const prompt = `A nostalgic Soviet New Year greeting card in the style of 1960s gouache illustrations. 
-                    Feature the people from the provided photos as the main characters. 
-                    They should be wearing vintage winter clothes (fur hats, warm coats, woolen scarves) and be smiling. 
-                    Setting: A cozy winter forest with a decorated spruce tree, falling snow, and soft magical lighting. 
-                    No text or words should be generated inside the image. 
-                    The overall color palette should be warm and festive.`;
+                    const prompt = `Soviet New Year greeting card from the 1960s. 
+                    Feature the people from the provided photos. 
+                    Style: Vintage gouache illustration, warm colors, nostalgic mood. 
+                    Setting: Snowy winter scene with a decorated Christmas tree. 
+                    Clothing: Classic 60s winter fashion. 
+                    Maintain high facial similarity. No text in image.`;
 
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash-image',
@@ -145,15 +136,14 @@
                     }
 
                     if (base64) {
-                        console.log("Image received, applying text overlay...");
                         const finalCard = await applyPostcardEffects(base64);
                         setResult(finalCard);
                     } else {
-                        throw new Error("Модель не вернула изображение. Попробуйте еще раз с другими фото.");
+                        throw new Error("Не удалось создать изображение. Попробуйте другой снимок.");
                     }
                 } catch (err) {
-                    console.error("Generation failed:", err);
-                    setError(err.message || "Ошибка связи с ИИ. Возможно, лимиты бесплатной версии исчерпаны.");
+                    console.error("Error:", err);
+                    setError("Проверьте API ключ в настройках GitHub и лимиты Gemini.");
                 } finally {
                     setIsGenerating(false);
                 }
@@ -177,32 +167,28 @@
                         const x = canvas.width / 2;
                         const y = canvas.height * 0.15;
 
-                        // Text shadow for readability
-                        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                        ctx.shadowBlur = 10;
                         ctx.shadowOffsetX = 3;
                         ctx.shadowOffsetY = 3;
 
-                        // Outline
-                        ctx.strokeStyle = '#9d0208';
+                        ctx.strokeStyle = '#800000';
                         ctx.lineWidth = fontSize * 0.08;
                         ctx.strokeText(text, x, y);
 
-                        // Gradient fill
                         const goldGrad = ctx.createLinearGradient(0, y - fontSize, 0, y);
-                        goldGrad.addColorStop(0, '#fff3b0');
-                        goldGrad.addColorStop(1, '#ffba08');
+                        goldGrad.addColorStop(0, '#fff6e0');
+                        goldGrad.addColorStop(1, '#ffcc33');
                         ctx.fillStyle = goldGrad;
                         ctx.shadowColor = 'transparent';
                         ctx.fillText(text, x, y);
 
-                        // Paper noise effect
                         ctx.globalCompositeOperation = 'multiply';
-                        ctx.globalAlpha = 0.04;
+                        ctx.globalAlpha = 0.05;
                         for (let i = 0; i < 4000; i++) {
                             const rx = Math.random() * canvas.width;
                             const ry = Math.random() * canvas.height;
-                            ctx.fillStyle = i % 2 === 0 ? '#000' : '#222';
+                            ctx.fillStyle = '#000';
                             ctx.fillRect(rx, ry, 1, 1);
                         }
 
@@ -231,7 +217,7 @@
                                         <button onClick={() => {
                                             const a = document.createElement('a');
                                             a.href = result;
-                                            a.download = `new_year_card_${Date.now()}.png`;
+                                            a.download = `card_${Date.now()}.png`;
                                             a.click();
                                         }} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-lg hover:bg-red-700 shadow-lg active:scale-95 flex items-center justify-center gap-2">
                                             💾 Скачать
@@ -245,17 +231,13 @@
                         ) : (
                             <div className="grid lg:grid-cols-2 gap-10 items-start">
                                 <div className="glass-card p-10 rounded-[3rem] shadow-2xl">
-                                    <h2 className="text-3xl font-extrabold text-slate-800 mb-6">Создайте открытку ✨</h2>
-                                    <p className="text-slate-600 leading-relaxed mb-10">
-                                        Загрузите фото, и наш ИИ превратит их в сказочную новогоднюю иллюстрацию.
-                                    </p>
-
+                                    <h2 className="text-3xl font-extrabold text-slate-800 mb-6">Ваша фото-сказка ✨</h2>
                                     <div 
                                         onClick={() => fileInputRef.current?.click()}
                                         className="relative group w-full border-4 border-dashed border-red-100 rounded-[2.5rem] p-16 text-center cursor-pointer hover:border-red-400 hover:bg-red-50/50 transition-all"
                                     >
                                         <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">📸</div>
-                                        <p className="font-bold text-slate-700 text-lg">Добавить фотографии</p>
+                                        <p className="font-bold text-slate-700 text-lg">Добавить фото</p>
                                         <input type="file" ref={fileInputRef} onChange={onFileChange} multiple accept="image/*" className="hidden" />
                                     </div>
 
@@ -280,30 +262,18 @@
                                                     <div className="absolute inset-0 border-8 border-t-red-600 rounded-full animate-spin"></div>
                                                     <div className="absolute inset-0 flex items-center justify-center text-4xl">🪄</div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-3xl font-black text-slate-800">Магия в работе...</p>
-                                                    <p className="text-sm text-slate-400 mt-4 italic max-w-xs mx-auto leading-relaxed">
-                                                        Мы переносим вас в ретро-сказку. Это может занять до 20 секунд.
-                                                    </p>
-                                                </div>
+                                                <p className="text-3xl font-black text-slate-800">Рисуем сказку...</p>
                                             </div>
                                         ) : images.length > 0 ? (
-                                            <div className="w-full space-y-10 animate-in slide-in-from-bottom-5">
-                                                <button onClick={generate} className="w-full py-8 bg-red-600 text-white rounded-[2.5rem] font-black text-3xl hover:bg-red-700 hover:scale-[1.02] transition-all shadow-2xl shadow-red-200 active:scale-95 flex items-center justify-center gap-4">
-                                                    <span>СОЗДАТЬ</span>
-                                                    <span>🎄</span>
-                                                </button>
-                                                <p className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">Free Generation Mode • Flash 2.5</p>
-                                            </div>
+                                            <button onClick={generate} className="w-full py-8 bg-red-600 text-white rounded-[2.5rem] font-black text-3xl hover:bg-red-700 hover:scale-[1.02] transition-all shadow-2xl active:scale-95">
+                                                СОЗДАТЬ 🎄
+                                            </button>
                                         ) : (
-                                            <div className="opacity-20 flex flex-col items-center">
-                                                <div className="text-[10rem] mb-4">❄️</div>
-                                                <p className="text-2xl font-bold text-slate-400">Сначала выберите фото</p>
-                                            </div>
+                                            <p className="text-2xl font-bold text-slate-400 opacity-30">Выберите фото для начала</p>
                                         )}
                                         
                                         {error && (
-                                            <div className="mt-10 p-6 bg-red-50 text-red-700 rounded-3xl text-sm font-bold border border-red-200 w-full animate-pulse shadow-inner">
+                                            <div className="mt-10 p-6 bg-red-50 text-red-700 rounded-3xl text-sm font-bold border border-red-200 w-full">
                                                 ⚠️ {error}
                                             </div>
                                         )}
@@ -313,9 +283,8 @@
                         )}
                     </main>
 
-                    <footer className="py-12 text-center text-slate-400 text-xs bg-white/50 border-t border-slate-100 z-10">
-                        <p className="font-bold mb-2 uppercase tracking-tighter">Винтажная мастерская 2024</p>
-                        <p className="opacity-40 italic">Deployment Compatibility Update v1.1</p>
+                    <footer className="py-12 text-center text-slate-400 text-xs z-10">
+                        <p>© 2024 Ретро-мастерская • Бесплатная генерация</p>
                     </footer>
 
                     {[...Array(20)].map((_, i) => (
