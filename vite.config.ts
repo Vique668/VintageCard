@@ -1,19 +1,23 @@
-
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
-  base: './',
-  define: {
-    // This injects the API_KEY from the environment (e.g., GitHub Secrets) 
-    // into the client-side code during build.
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
-  },
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      input: './index.html'
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  // Fix: Property 'cwd' does not exist on type 'Process'. Cast process to any to resolve the type error.
+  const env = loadEnv(mode, (process as any).cwd(), '');
+  
+  return {
+    plugins: [react()],
+    base: './',
+    define: {
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY)
+    },
+    build: {
+      outDir: 'dist',
+      rollupOptions: {
+        input: './index.html'
+      }
     }
-  }
+  };
 });
