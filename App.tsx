@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { GenerationState } from './types';
-import Header from './components/Header';
-import ImageUploader from './components/ImageUploader';
-import ResultDisplay from './components/ResultDisplay';
-import Footer from './components/Footer';
+import { GenerationState } from './types.ts';
+import Header from './components/Header.tsx';
+import ImageUploader from './components/ImageUploader.tsx';
+import ResultDisplay from './components/ResultDisplay.tsx';
+import Footer from './components/Footer.tsx';
 
 const App: React.FC = () => {
   const [state, setState] = useState<GenerationState>({
@@ -80,27 +80,13 @@ const App: React.FC = () => {
     });
   };
 
-  const getApiKey = () => {
-    // Attempt multiple common places for the API key
-    try {
-      return (import.meta as any).env?.VITE_API_KEY || (window as any).process?.env?.API_KEY || "";
-    } catch (e) {
-      return "";
-    }
-  };
-
   const generateCard = async () => {
     if (state.uploadedImageUrls.length === 0) return;
 
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
 
     try {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        throw new Error("API Key not found. Please check your configuration.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       
       const imageParts = state.uploadedImageUrls.map(url => {
         const base64Parts = url.split(',');
