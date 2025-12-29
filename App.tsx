@@ -80,13 +80,27 @@ const App: React.FC = () => {
     });
   };
 
+  const getApiKey = () => {
+    // Attempt multiple common places for the API key
+    try {
+      return (import.meta as any).env?.VITE_API_KEY || (window as any).process?.env?.API_KEY || "";
+    } catch (e) {
+      return "";
+    }
+  };
+
   const generateCard = async () => {
     if (state.uploadedImageUrls.length === 0) return;
 
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
 
     try {
-      const ai = new GoogleGenAI({ apiKey: (import.meta as any).env?.VITE_API_KEY || (process.env as any).API_KEY || '' });
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error("API Key not found. Please check your configuration.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       
       const imageParts = state.uploadedImageUrls.map(url => {
         const base64Parts = url.split(',');
