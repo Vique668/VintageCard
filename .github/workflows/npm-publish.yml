@@ -1,0 +1,4 @@
+- name: Build
+  run: npm run build
+  env:
+    API_KEY: ${{ secrets.API_KEY }}
